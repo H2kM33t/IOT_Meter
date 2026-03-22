@@ -1,39 +1,53 @@
 #include <Arduino.h>
 
-// CURRENT TRANSFORMER OUTPUT PIN
-int CT_PIN = 32;
+// PINS
+#define VOLTAGE_PIN 33
+#define CT_PIN 32
 
-// POTIENTIAL TRANSFORMER OUTPUT PIN
-int PT_PIN = 33;
+// SETTINGS
+#define NUM_SAMPLES 500
+#define VOLTAGE_SCALING 93.56   // Voltage calibration
+#define CURRENT_SCALING 0.7   // Current calibration
 
 void setup()
 {
-  // SERIAL MONITOR CONFIGURATION
   Serial.begin(115200);
 
-  analogReadResolution(12);       // Set 12-bit resolution (0–4095)
-  analogSetAttenuation(ADC_11db); // USE THE FULL 0.0V - 3.3 V
+  analogReadResolution(12);
+  analogSetAttenuation(ADC_11db);
 }
 
-void main()
+void loop()
 {
+  float sumSq_voltage = 0;
 
+  // ===== Voltage RMS Calculation =====
+  for (int i = 0; i < NUM_SAMPLES; i++)
+  {
+    int raw_voltage = analogRead(VOLTAGE_PIN);
+
+    float voltage = (raw_voltage / 4095.0) * 3.3;
+
+    sumSq_voltage += voltage * voltage;
+
+    delayMicroseconds(5000);  // 200 Hz sampling
+  }
+
+  float Vrms_pin = sqrt(sumSq_voltage / NUM_SAMPLES);
+  float Vrms_mains = Vrms_pin * VOLTAGE_SCALING;
+
+  // ===== Current Calculation =====
   int current_adc = analogRead(CT_PIN);
-  int voltage_adc = analogRead(PT_PIN);
-
-  // Convert to voltage
   float current_voltage = (3.3 / 4095.0) * current_adc + 0.150;
-  float voltage_voltage = (3.3 / 4095.0) * voltage_adc;
 
-  Serial.print("CT ADC: ");
-  Serial.print(current_adc);
-  Serial.print(" | CT Voltage: ");
-  Serial.print(current_voltage);
+  float current_actual = current_voltage * CURRENT_SCALING;
 
-  Serial.print(" || PT ADC: ");
-  Serial.print(voltage_adc);
-  Serial.print(" | PT Voltage: ");
-  Serial.println(voltage_voltage);
+  // ===== Output =====
+  Serial.print("Mains Voltage: ");
+  Serial.print(Vrms_mains, 1);
+  Serial.print(" V | Current: ");
+  Serial.print(current_actual, 3);
+  Serial.println(" A");
 
-  delay(500);
+  delay(1000);
 }
