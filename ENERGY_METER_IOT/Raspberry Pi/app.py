@@ -3,34 +3,51 @@ import sqlite3
 
 app = Flask(__name__)
 
-# Get latest data
+# Latest data
 @app.route('/data')
 def get_data():
     conn = sqlite3.connect('power.db')
     c = conn.cursor()
 
-    c.execute("SELECT voltage, current, power FROM readings ORDER BY timestamp DESC LIMIT 1")
-    row = c.fetchone()
+    c.execute("""
+        SELECT voltage, current, power, energy 
+        FROM readings 
+        ORDER BY timestamp DESC LIMIT 1
+    """)
 
+    row = c.fetchone()
     conn.close()
 
     if row:
         return jsonify({
             "voltage": row[0],
             "current": row[1],
-            "power": row[2]
+            "power": row[2],
+            "energy_wh": row[3],
+            "energy_kwh": row[3] / 1000
         })
     else:
-        return jsonify({"voltage": 0, "current": 0, "power": 0})
+        return jsonify({
+            "voltage": 0,
+            "current": 0,
+            "power": 0,
+            "energy_wh": 0,
+            "energy_kwh": 0
+        })
 
 
-# Get last 50 readings (for graph)
+# Graph data
 @app.route('/history')
 def get_history():
     conn = sqlite3.connect('power.db')
     c = conn.cursor()
 
-    c.execute("SELECT timestamp, power FROM readings ORDER BY timestamp DESC LIMIT 50")
+    c.execute("""
+        SELECT timestamp, power 
+        FROM readings 
+        ORDER BY timestamp DESC LIMIT 50
+    """)
+
     rows = c.fetchall()
     conn.close()
 
@@ -38,7 +55,7 @@ def get_history():
     return jsonify(rows)
 
 
-# Dashboard page
+# Web UI
 @app.route('/')
 def index():
     return render_template('index.html')
